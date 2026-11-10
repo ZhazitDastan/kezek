@@ -1,0 +1,9 @@
+.env
+.git
+compose.yaml
+.env.example
+README.md
+Makefile
+.idea
+.github
+Dockerfile

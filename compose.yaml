@@ -15,5 +15,19 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+
+  api:
+    container_name: kezek-api
+    build: .
+    image: kezek-api
+    restart: unless-stopped
+    environment:
+      HTTP_ADDR: ":8080"
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:

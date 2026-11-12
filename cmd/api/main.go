@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,26 +11,51 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ZhazitDastan/kezek/internal/config"
 	"github.com/ZhazitDastan/kezek/internal/httpapi"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	mux := httpapi.NewRouter()
-
-	httpAddr := os.Getenv("HTTP_ADDR")
-	if httpAddr == "" {
-		httpAddr = ":8080"
+	slog.SetDefault(logger)
+	if err := godotenv.Load(".env"); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		logger.Error("load .env file failed", "err", err)
+		os.Exit(1)
 	}
-	srv := &http.Server{Addr: httpAddr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Error("Error loading config", "err", err)
+		os.Exit(1)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	pool, err := pgxpool.New(ctx, cfg.DBURL)
+	if err != nil {
+		logger.Error("Error connecting to database", "err", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
+	err = pool.Ping(pingCtx)
+	pingCancel()
+	if err != nil {
+		logger.Error("Error pinging database", "err", err)
+		os.Exit(1)
+	}
+
+	mux := httpapi.NewRouter(pool)
+	srv := &http.Server{Addr: cfg.Addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+
 	errCh := make(chan error, 1)
 
 	go func() {
-		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()

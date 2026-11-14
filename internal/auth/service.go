@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -20,13 +21,18 @@ func NewService(store Store, sessionTTL time.Duration) *Service {
 	return &Service{store: store, sessionTTL: sessionTTL, now: time.Now}
 }
 
+func validEmail(email string) bool {
+	addr, err := mail.ParseAddress(email)
+	return err == nil && addr.Address == email
+}
+
 func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
 func (s *Service) Register(ctx context.Context, email, password string) (User, error) {
 	email = normalizeEmail(email)
-	if email == "" || !strings.Contains(email, "@") {
+	if !validEmail(email) {
 		return User{}, ErrInvalidEmail
 	}
 	hash, err := hashPassword(password)
@@ -48,10 +54,12 @@ func (s *Service) Login(ctx context.Context, email, password string) (string, er
 	user, err := s.store.UserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
+			_ = checkPassword(dummyHash, password)
 			return "", ErrInvalidCredentials
 		}
 		return "", err
 	}
+
 	if err := checkPassword(user.PasswordHash, password); err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return "", ErrInvalidCredentials

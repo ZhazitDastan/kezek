@@ -11,6 +11,8 @@ import (
 	"github.com/ZhazitDastan/kezek/internal/auth"
 )
 
+const maxBodyBytes = 1 << 20
+
 type AuthService interface {
 	Register(ctx context.Context, email, password string) (auth.User, error)
 	Login(ctx context.Context, email, password string) (string, error)
@@ -36,12 +38,24 @@ type tokenResponse struct {
 	Token string `json:"token"`
 }
 
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+	err := json.NewDecoder(r.Body).Decode(dst)
+	if err == nil {
+		return true
+	}
+	var tooBig *http.MaxBytesError
+	if errors.As(err, &tooBig) {
+		writeError(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body too large")
+		return false
+	}
+	writeError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+	return false
+}
+
 func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var req credentialsRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	user, err := h.svc.Register(r.Context(), req.Email, req.Password)
@@ -63,11 +77,8 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var req credentialsRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", "invalid request body")
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	token, err := h.svc.Login(r.Context(), req.Email, req.Password)

@@ -89,10 +89,17 @@ func TestRegister(t *testing.T) {
 			wantStatus: http.StatusInternalServerError,
 			wantCode:   "internal_error",
 		},
+		{
+			name:       "body too large",
+			body:       `{"email":"` + strings.Repeat("a", 2<<20),
+			svc:        &fakeAuthService{},
+			wantStatus: http.StatusRequestEntityTooLarge,
+			wantCode:   "body_too_large",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "/auth/register", strings.NewReader(tt.body))
+			req := httptest.NewRequest(http.MethodPost, "/v1/auth/register", strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 			httpapi.NewRouter(fakePinger{}, tt.svc).ServeHTTP(rec, req)
@@ -179,7 +186,7 @@ func TestLogin(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(tt.body))
+			req := httptest.NewRequest(http.MethodPost, "/v1/auth/login", strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 			httpapi.NewRouter(fakePinger{}, tt.svc).ServeHTTP(rec, req)
@@ -267,7 +274,7 @@ func TestRequireAuth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/me", nil)
+			req := httptest.NewRequest(http.MethodGet, "/v1/me", nil)
 			if tt.header != "" {
 				req.Header.Set("Authorization", tt.header)
 			}
@@ -351,7 +358,7 @@ func TestLogout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+			req := httptest.NewRequest(http.MethodPost, "/v1/auth/logout", nil)
 			if tt.header != "" {
 				req.Header.Set("Authorization", tt.header)
 			}

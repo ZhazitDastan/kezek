@@ -92,6 +92,30 @@ func TestRegister_Errors(t *testing.T) {
 			password: "validpassword123",
 			wantErr:  ErrEmailTaken,
 		},
+		{
+			name:     "invalid email",
+			email:    "@",
+			password: "validpassword123",
+			wantErr:  ErrInvalidEmail,
+		},
+		{
+			name:     "invalid email 2",
+			email:    "a b@c.com",
+			password: "validpassword123",
+			wantErr:  ErrInvalidEmail,
+		},
+		{
+			name:     "invalid email 2",
+			email:    "",
+			password: "validpassword123",
+			wantErr:  ErrInvalidEmail,
+		},
+		{
+			name:     "valid email",
+			email:    "a@b.com",
+			password: "validpassword123",
+			wantErr:  nil,
+		},
 	}
 
 	for _, tt := range tests {

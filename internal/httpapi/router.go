@@ -15,10 +15,15 @@ type healthHandler struct {
 	p Pinger
 }
 
-func NewRouter(p Pinger) http.Handler {
+func NewRouter(p Pinger, authSvc AuthService) http.Handler {
 	h := &healthHandler{p: p}
+	ah := &authHandler{svc: authSvc}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", h.healthz)
+	mux.HandleFunc("POST /auth/register", ah.register)
+	mux.HandleFunc("POST /auth/login", ah.login)
+	mux.HandleFunc("POST /auth/logout", ah.logout)
+	mux.Handle("GET /me", RequireAuth(authSvc, http.HandlerFunc(ah.me)))
 	return mux
 }
 

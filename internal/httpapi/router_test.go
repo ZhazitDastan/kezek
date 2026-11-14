@@ -70,7 +70,7 @@ func TestHealthz(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			rec := httptest.NewRecorder()
-			httpapi.NewRouter(fakePinger{err: tt.pingErr}).ServeHTTP(rec, req)
+			httpapi.NewRouter(fakePinger{err: tt.pingErr}, nil).ServeHTTP(rec, req)
 
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("got %d, want %d, body: %s", rec.Code, tt.wantStatus, rec.Body.String())
@@ -113,7 +113,7 @@ func TestHealthz_PingTimeout(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 	start := time.Now()
-	httpapi.NewRouter(hangPinger{}).ServeHTTP(rec, req)
+	httpapi.NewRouter(hangPinger{}, nil).ServeHTTP(rec, req)
 	elapsed := time.Since(start)
 
 	if rec.Code != http.StatusServiceUnavailable {

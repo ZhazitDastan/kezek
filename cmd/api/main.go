@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ZhazitDastan/kezek/internal/auth"
 	"github.com/ZhazitDastan/kezek/internal/config"
 	"github.com/ZhazitDastan/kezek/internal/httpapi"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -49,7 +50,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	mux := httpapi.NewRouter(pool)
+	authSvc := auth.NewService(auth.NewPgStore(pool), 24*time.Hour)
+	mux := httpapi.NewRouter(pool, authSvc)
 	srv := &http.Server{Addr: cfg.Addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 
 	errCh := make(chan error, 1)
